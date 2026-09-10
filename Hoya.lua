@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -59,7 +60,7 @@ TopBarCover.BorderSizePixel = 0
 local TitleLabel = Instance.new("TextLabel", TopBar)
 TitleLabel.Size = UDim2.new(1, -110, 1, 0)
 TitleLabel.Position = UDim2.new(0, 12, 0, 0)
-TitleLabel.Text = "호냥이 허브 | 최적화 에디션"
+TitleLabel.Text = "호냥이 허브 | 사일런트+레이지 에디션"
 TitleLabel.TextColor3 = Color3.fromRGB(230, 230, 240)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Font = Enum.Font.GothamBold
@@ -310,7 +311,7 @@ FOVGui.ResetOnSpawn = false
 
 local FOVFrame = Instance.new("Frame", FOVGui)
 FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVFrame.Position = UDim2.new(0.5, 0, 0.5, -25)
 FOVFrame.Size = UDim2.new(0, FOV * 2, 0, FOV * 2)
 FOVFrame.BackgroundTransparency = 1
 FOVFrame.Visible = false
@@ -319,19 +320,13 @@ local UICorner = Instance.new("UICorner", FOVFrame)
 UICorner.CornerRadius = UDim.new(1, 0)
 
 local FOVStroke = Instance.new("UIStroke", FOVFrame)
-FOVStroke.Thickness = 2
-
-local hue = 0
-RunService.RenderStepped:Connect(function()
-    hue = (hue + 2) % 360
-    FOVStroke.Color = Color3.fromHSV(hue / 360, 1, 1)
-end)
+FOVStroke.Thickness = 1
+FOVStroke.Color = Color3.fromRGB(255, 255, 255)
 
 local RageUIGui = Instance.new("ScreenGui", PlayerGui)
 RageUIGui.Name = "HoNyangRageUI"
 RageUIGui.ResetOnSpawn = false
 
--- 크로스헤어를 위(-50)에서 아주 살짝 아래로 내려서 -35 위치로 조정
 local CrosshairContainer = Instance.new("Frame", RageUIGui)
 CrosshairContainer.AnchorPoint = Vector2.new(0.5, 0.5)
 CrosshairContainer.Position = UDim2.new(0.5, 0, 0.5, -35)
@@ -356,7 +351,6 @@ for _, info in ipairs(lines) do
     table.insert(crosshairLines, {Line = line, DefaultPos = info.DefaultPos})
 end
 
--- 글자 위치를 아래(+40)에서 위로 올려서 +25 위치로 조정
 local RageTextLabel = Instance.new("TextLabel", RageUIGui)
 RageTextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
 RageTextLabel.Position = UDim2.new(0.5, 0, 0.5, 25)
@@ -398,6 +392,10 @@ end)
 createButton(LegitTab, "Aimbot (Players & NPCs)", function(Value)
     getgenv().AimbotEnabled = Value
     FOVFrame.Visible = Value
+end)
+
+createButton(LegitTab, "Wall Check (Aimbot)", function(Value)
+    getgenv().WallCheckEnabled = Value
 end)
 
 createSlider(LegitTab, "FOV Size", 1, 300, 150, function(Value)
@@ -539,7 +537,6 @@ do
         self.__conn2 = nil
         self.__task1 = nil
         self.__oldfunc = nil
-        self.__autoshootConn = nil
         self.__activateTime = 0
         self:__setup()
     end
@@ -604,6 +601,29 @@ do
 
             return unpack(__r0s1t2)
         end
+
+        local old_ray = __w9x0y1.Raycast
+        if old_ray then
+            __w9x0y1.Raycast = function(s, o, d, len, f, ft, viz)
+                if self.__active then
+                    if len and len > 50 and f then
+                        local tgt = self.__target
+                        if tgt and tgt.Character and tgt.Character:FindFirstChild("Head") then
+                            local head = tgt.Character.Head
+                            local hitpos = head.Position
+                            return {
+                                Position = hitpos,
+                                Distance = (hitpos - o).Magnitude,
+                                Instance = head,
+                                Material = head.Material,
+                                Normal = Vector3.yAxis
+                            }
+                        end
+                    end
+                end
+                return old_ray(s, o, d, len, f, ft, viz)
+            end
+        end
     end
 
     function __i1j2k3:__find()
@@ -648,6 +668,8 @@ do
         self.__desync = true
         self.__curr = __c3d4e5
 
+        local tickCounter = 0
+
         self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
             if not self.__desync then return end
             local __f6g7h8 = __z2a3b4.__root
@@ -659,7 +681,8 @@ do
             end
 
             local enemyHead = __c3d4e5.Character:FindFirstChild("Head")
-            if not enemyHead then
+            local enemyRoot = __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
+            if not enemyHead or not enemyRoot then
                 self:__desync_stop()
                 return
             end
@@ -668,7 +691,19 @@ do
             local __o5p6q7 = __f6g7h8.Velocity
             local __r8s9t0 = __f6g7h8.RotVelocity
 
-            __f6g7h8.CFrame = enemyHead.CFrame + Vector3.new(0, 0, 0)
+            tickCounter = tickCounter + 1
+            local cycle = (tickCounter % 7)
+
+            local offset
+            if cycle < 4 then
+                offset = CFrame.new(math.random(-3, 3), 4, math.random(-3, 3))
+            else
+                local sideToggle = (tickCounter % 2 == 0)
+                local sideOffset = sideToggle and 3 or -3
+                offset = CFrame.new(sideOffset, 0, 0)
+            end
+
+            __f6g7h8.CFrame = enemyRoot.CFrame * offset
 
             __y5z6a7:BindToRenderStep("__restore", 1, function()
                 __f6g7h8.CFrame = __l2m3n4
@@ -693,110 +728,38 @@ do
         CrosshairContainer.Visible = state
         if state then
             self.__activateTime = tick() 
-            if self.__autoshootConn then
-                self.__autoshootConn:Disconnect()
-                self.__autoshootConn = nil
-            end
-            
-            task.spawn(function()
-                while self.__active do
-                    self.__activateTime = tick()
-                    task.wait(1.4)
-                    
-                    local lastShoot = 0
-                    while self.__active do
-                        local myChar = __k7l8m9.Character
-                        if not myChar or not myChar:FindFirstChild("Humanoid") or myChar.Humanoid.Health <= 0 then
-                            break
-                        end
-
-                        local now = tick()
-                        if now - lastShoot >= 0.04 then
-                            lastShoot = now
-                            pcall(function()
-                                if self.__target and self.__target.Character then
-                                    if not isImmune(self.__target.Character, self.__target) then
-                                        local hum = self.__target.Character:FindFirstChildWhichIsA("Humanoid")
-                                        if hum and hum.Health > 0 then
-                                            local currentTool = myChar:FindFirstChildOfClass("Tool")
-                                            local backpack = __k7l8m9:FindFirstChildOfClass("Backpack")
-                                            
-                                            if currentTool and backpack then
-                                                local ammoExhausted = false
-                                                for _, v in pairs(currentTool:GetDescendants()) do
-                                                    if v:IsA("IntValue") or v:IsA("NumberValue") then
-                                                        local nameLower = string.lower(v.Name)
-                                                        if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("bullet") or nameLower:find("mag") then
-                                                            if v.Value <= 0 then
-                                                                ammoExhausted = true
-                                                            end
-                                                        end
-                                                    end
-                                                end
-
-                                                if ammoExhausted then
-                                                    for _, tool in pairs(backpack:GetChildren()) do
-                                                        if tool:IsA("Tool") and tool ~= currentTool then
-                                                            local hasAmmo = true
-                                                            for _, subV in pairs(tool:GetDescendants()) do
-                                                                if subV:IsA("IntValue") or subV:IsA("NumberValue") then
-                                                                    local nLower = string.lower(subV.Name)
-                                                                    if nLower:find("ammo") or nLower:find("clip") or nLower:find("bullet") or nLower:find("mag") then
-                                                                        if subV.Value <= 0 then
-                                                                            hasAmmo = false
-                                                                        end
-                                                                    end
-                                                                end
-                                                            end
-                                                            if hasAmmo then
-                                                                local humanoid = myChar:FindFirstChildOfClass("Humanoid")
-                                                                if humanoid then
-                                                                    humanoid:EquipTool(tool)
-                                                                    task.wait(0.02)
-                                                                    break
-                                                                end
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-
-                                            local tool = myChar:FindFirstChildOfClass("Tool")
-                                            if tool then
-                                                pcall(function()
-                                                    tool:Activate()
-                                                end)
-                                            end
-
-                                            local vim = game:GetService("VirtualInputManager")
-                                            vim:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                                            task.wait()
-                                            vim:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                                        end
-                                    end
-                                end
-                            end)
-                        end
-                        task.wait()
-                    end
-                end
-            end)
         else
             self:__desync_stop()
-            if self.__autoshootConn then
-                self.__autoshootConn:Disconnect()
-                self.__autoshootConn = nil
-            end
         end
     end
 
     __i1j2k3:__init()
 end
 
-createButton(LegitTab, "레이지봇 (상대 끝까지 추격 + 크로스헤어)", function(Value)
+createButton(LegitTab, "레이지봇 (사일런트 + 크로스헤어)", function(Value)
     if __p6q7r8.__s9t0u1 then
         __p6q7r8.__s9t0u1:SetState(Value)
     end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not __p6q7r8.__s9t0u1 or not __p6q7r8.__s9t0u1.__active then return end
+    pcall(function()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool then
+            local toolName = string.lower(tool.Name)
+            if toolName:find("sword") or toolName:find("melee") or toolName:find("knife") or toolName:find("slash") or toolName:find("punch") or toolName:find("bat") or toolName:find("hammer") or toolName:find("dagger") or toolName:find("fist") then
+                local tgt = __p6q7r8.__s9t0u1.__target
+                if tgt and tgt.Character and not isImmune(tgt.Character, tgt) then
+                    if not __p6q7r8.__s9t0u1.__desync or __p6q7r8.__s9t0u1.__curr ~= tgt then
+                        __p6q7r8.__s9t0u1:__desync_start(tgt)
+                    end
+                end
+            end
+        end
+    end)
 end)
 
 RunService:BindToRenderStep("HoNyangAimbot", Enum.RenderPriority.Camera.Value + 1, function()
@@ -807,6 +770,19 @@ RunService:BindToRenderStep("HoNyangAimbot", Enum.RenderPriority.Camera.Value + 
     local nearestTarget = nil
     local shortestDistance = math.huge
     
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.IgnoreWater = true
+    
+    local function isVisible(targetPart)
+        if not getgenv().WallCheckEnabled then return true end
+        local origin = Camera.CFrame.Position
+        local direction = targetPart.Position - origin
+        raycastParams.FilterDescendantsInstances = {char, targetPart.Parent}
+        local result = workspace:Raycast(origin, direction, raycastParams)
+        return result == nil
+    end
+
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Humanoid") and obj.Health > 0 then
             local model = obj.Parent
@@ -815,7 +791,7 @@ RunService:BindToRenderStep("HoNyangAimbot", Enum.RenderPriority.Camera.Value + 
                 if head then
                     local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
                     local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    if onScreen and distance <= FOV and distance < shortestDistance then
+                    if onScreen and distance <= FOV and distance < shortestDistance and isVisible(head) then
                         shortestDistance = distance
                         nearestTarget = head
                     end
@@ -834,7 +810,7 @@ RunService:BindToRenderStep("HoNyangAimbot", Enum.RenderPriority.Camera.Value + 
             if humanoid and humanoid.Health > 0 and linkHead then
                 local pos, onScreen = Camera:WorldToViewportPoint(linkHead.Position)
                 local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                if onScreen and distance <= FOV and distance < shortestDistance then
+                if onScreen and distance <= FOV and distance < shortestDistance and isVisible(linkHead) then
                     shortestDistance = distance
                     nearestTarget = linkHead
                 end
@@ -968,7 +944,7 @@ RunService.RenderStepped:Connect(function()
                 healthBg.Visible = getgenv().HealthEnabled
                 healthBar.Size = UDim2.new(math.clamp(hum.Health / hum.MaxHealth, 0, 1), 0, 1, 0)
             end
-            uiContainer.Enabled = true
+            uiContainer.Enabled = t_rue or true
         else
             if uiContainer then uiContainer.Enabled = false end
         end

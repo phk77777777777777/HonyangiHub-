@@ -34,8 +34,8 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 380, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -190, 0.5, -130)
+MainFrame.Size = UDim2.new(0, 380, 0, 340)
+MainFrame.Position = UDim2.new(0.5, -190, 0.5, -170)
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 MainFrame.Visible = true
 MainFrame.BorderSizePixel = 0
@@ -146,7 +146,7 @@ local function createTab(name)
     page.Position = UDim2.new(0, 10, 0, 74)
     page.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
     page.Visible = false
-    page.CanvasSize = UDim2.new(0, 0, 0, 240)
+    page.CanvasSize = UDim2.new(0, 0, 0, 400)
     page.ScrollBarThickness = 3
     page.BorderSizePixel = 0
     Instance.new("UICorner", page).CornerRadius = UDim.new(0, 6)
@@ -480,287 +480,241 @@ task.spawn(function()
     end
 end)
 
-local __a1b2c3 = setmetatable({}, {
-    __index = function(__d4e5f6, __g7h8i9)
-        local __j0k1l2, __m3n4o5 = pcall(function()
-            return game:GetService(__g7h8i9)
-        end)
-        if __m3n4o5 then
-            return cloneref(__m3n4o5)
-        end
-        return nil
-    end
-})
+local __repS = cloneref(game:GetService("ReplicatedStorage"))
+local __plrs = cloneref(game:GetService("Players"))
+local __runS = cloneref(game:GetService("RunService"))
+local __ws = cloneref(game:GetService("Workspace"))
+local __lplr = __plrs.LocalPlayer
+local __util = require(__repS.Modules.Utility)
+local __enum = require(__repS.Modules.EnumLibrary)
+local __FighterController = require(__lplr.PlayerScripts.Controllers.FighterController)
+local __SpectateController = require(__lplr.PlayerScripts.Controllers:WaitForChild("SpectateController"))
 
-local __p6q7r8 = getgenv()
-local __v2w3x4 = __a1b2c3.Players
-local __y5z6a7 = __a1b2c3.RunService
-local __b8c9d0 = __a1b2c3.ReplicatedStorage
-local __k7l8m9 = __v2w3x4.LocalPlayer
-local __q3r4s5 = __k7l8m9.PlayerScripts
-local __t6u7v8 = require(__q3r4s5.Modules.ItemTypes.Gun)
-local __w9x0y1 = require(__b8c9d0.Modules.Utility)
+getgenv().Config = {
+    Enabled = false,
+    FireRate = 0.0005,
+    WeaponSlot = "Melee"
+}
 
-local __z2a3b4 = setmetatable({}, {
-    __index = function(_, __c5d6e7)
-        local __f8g9h0 = __k7l8m9.Character
-        if not __f8g9h0 then return nil end
-        if __c5d6e7 == "__root" then
-            return __f8g9h0:FindFirstChild("HumanoidRootPart")
-        elseif __c5d6e7 == "__head" then
-            return __f8g9h0:FindFirstChild("Head")
-        end
-        return nil
-    end
-})
+local __slots = {
+    Primary = 1,
+    Secondary = 2,
+    Melee = 3
+}
 
-__p6q7r8.__s9t0u1 = {}
-
-do
-    local __i1j2k3 = __p6q7r8.__s9t0u1
-
-    local function isImmune(char, player)
-        if not char then return true end
-        if char:FindFirstChildOfClass("ForceField") then return true end
-        if player then
-            local spawnTime = player:GetAttribute("SpawnTime") or 0
-            if tick() - spawnTime < 1.5 then return true end
-        end
-        return false
-    end
-
-    function __i1j2k3:__init()
-        self.__active = false
-        self.__target = nil
-        self.__desync = false
-        self.__conn1 = nil
-        self.__conn2 = nil
-        self.__task1 = nil
-        self.__oldfunc = nil
-        self.__activateTime = 0
-        self:__setup()
-    end
-
-    function __i1j2k3:__setup()
-        self.__conn1 = __y5z6a7.Heartbeat:Connect(function()
-            if not self.__active then return end
-            self.__target = self:__find()
-        end)
-
-        local __l4m5n6 = __t6u7v8.StartShooting
-        self.__oldfunc = __l4m5n6
-        __t6u7v8.StartShooting = function(__o7p8q9, ...)
-            local __r0s1t2 = {__l4m5n6(__o7p8q9, ...)}
-            if not self.__active then return unpack(__r0s1t2) end
-
-            if tick() - self.__activateTime < 1.4 then
-                return unpack(__r0s1t2)
-            end
-
-            if not __o7p8q9.ClientFighter or not __o7p8q9.ClientFighter.IsLocalPlayer then
-                return unpack(__r0s1t2)
-            end
-
-            local __u3v4w5 = __r0s1t2[3]
-            if not __u3v4w5 or typeof(__u3v4w5) ~= "table" then
-                return unpack(__r0s1t2)
-            end
-
-            local __x6y7z8 = self.__target
-
-            if not __x6y7z8 or not __x6y7z8.Character or isImmune(__x6y7z8.Character, __x6y7z8) then
-                return unpack(__r0s1t2)
-            end
-
-            __r0s1t2[4] = true
-
-            if not __desync or self.__curr ~= __x6y7z8 then
-                self:__desync_start(__x6y7z8)
-            end
-
-            if self.__task1 then
-                task.cancel(self.__task1)
-                self.__task1 = nil
-            end
-
-            local __a9b0c1 = __x6y7z8.Character:FindFirstChild("Head")
-            if not __a9b0c1 then return unpack(__r0s1t2) end
-
-            local __d2e3f4 = __a9b0c1.Position
-            local __g5h6i7 = __a9b0c1.CFrame
-            local __p4q5r6 = __g5h6i7:ToObjectSpace(CFrame.new(__d2e3f4))
-
-            __u3v4w5[utf8.char(0)] = __w9x0y1:EncodeCFrame(__g5h6i7)
-            __u3v4w5[utf8.char(1)] = __w9x0y1:EncodeCFrame(__g5h6i7)
-            __u3v4w5[utf8.char(2)] = __a9b0c1
-            __u3v4w5[utf8.char(3)] = __w9x0y1:EncodeCFrame(__p4q5r6)
-
-            self.__task1 = task.delay(0.04, function()
-                self:__desync_stop()
-            end)
-
-            return unpack(__r0s1t2)
-        end
-
-        local old_ray = __w9x0y1.Raycast
-        if old_ray then
-            __w9x0y1.Raycast = function(s, o, d, len, f, ft, viz)
-                if self.__active then
-                    if len and len > 50 and f then
-                        local tgt = self.__target
-                        if tgt and tgt.Character and tgt.Character:FindFirstChild("Head") then
-                            local head = tgt.Character.Head
-                            local hitpos = head.Position
-                            return {
-                                Position = hitpos,
-                                Distance = (hitpos - o).Magnitude,
-                                Instance = head,
-                                Material = head.Material,
-                                Normal = Vector3.yAxis
-                            }
-                        end
-                    end
-                end
-                return old_ray(s, o, d, len, f, ft, viz)
-            end
-        end
-    end
-
-    function __i1j2k3:__find()
-        local myChar = __k7l8m9.Character
-        if not myChar then return nil end
-        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return nil end
-       
-        local closest = nil
-        local closestDist = math.huge
-        local MAX_DISTANCE = math.huge
-
-        for _, player in next, __v2w3x4:GetPlayers() do
-            if player == __k7l8m9 then continue end
-            if player:GetAttribute("TeamID") == __k7l8m9:GetAttribute("TeamID") then continue end
-           
-            local char = player.Character
-            if not char then continue end
-
-            if isImmune(char, player) then continue end
-
-            local root = char:FindFirstChild("HumanoidRootPart")
-            local head = char:FindFirstChild("Head")
-            local hum = char:FindFirstChildWhichIsA("Humanoid")
-            
-            if not (root and head and hum and hum.Health > 0) then continue end
-           
-            local dist = (myRoot.Position - root.Position).Magnitude
-            if dist > MAX_DISTANCE then continue end
-            
-            if dist < closestDist then
-                closestDist = dist
-                closest = player
-            end
-        end
-        
-        return closest
-    end
-
-    function __i1j2k3:__desync_start(__c3d4e5)
-        if self.__conn2 then self.__conn2:Disconnect() end
-        self.__desync = true
-        self.__curr = __c3d4e5
-
-        local tickCounter = 0
-
-        self.__conn2 = __y5z6a7.Heartbeat:Connect(function()
-            if not self.__desync then return end
-            local __f6g7h8 = __z2a3b4.__root
-            if not __f6g7h8 then return end
-
-            if not __c3d4e5.Character or isImmune(__c3d4e5.Character, __c3d4e5) then
-                self:__desync_stop()
-                return
-            end
-
-            local enemyHead = __c3d4e5.Character:FindFirstChild("Head")
-            local enemyRoot = __c3d4e5.Character:FindFirstChild("HumanoidRootPart")
-            if not enemyHead or not enemyRoot then
-                self:__desync_stop()
-                return
-            end
-
-            local __l2m3n4 = __f6g7h8.CFrame
-            local __o5p6q7 = __f6g7h8.Velocity
-            local __r8s9t0 = __f6g7h8.RotVelocity
-
-            tickCounter = tickCounter + 1
-            local cycle = (tickCounter % 7)
-
-            local offset
-            if cycle < 4 then
-                offset = CFrame.new(math.random(-3, 3), 4, math.random(-3, 3))
-            else
-                local sideToggle = (tickCounter % 2 == 0)
-                local sideOffset = sideToggle and 3 or -3
-                offset = CFrame.new(sideOffset, 0, 0)
-            end
-
-            __f6g7h8.CFrame = enemyRoot.CFrame * offset
-
-            __y5z6a7:BindToRenderStep("__restore", 1, function()
-                __f6g7h8.CFrame = __l2m3n4
-                __f6g7h8.Velocity = __o5p6q7
-                __f6g7h8.RotVelocity = __r8s9t0
-                __y5z6a7:UnbindFromRenderStep("__restore")
-            end)
-        end)
-    end
-
-    function __i1j2k3:__desync_stop()
-        self.__desync = false
-        self.__curr = nil
-        if self.__conn2 then
-            self.__conn2:Disconnect()
-            self.__conn2 = nil
-        end
-    end
-
-    function __i1j2k3:SetState(state)
-        self.__active = state
-        CrosshairContainer.Visible = state
-        if state then
-            self.__activateTime = tick() 
-        else
-            self:__desync_stop()
-        end
-    end
-
-    __i1j2k3:__init()
+local function __getSlotNumber()
+    return __slots[getgenv().Config.WeaponSlot] or 3
 end
 
-createButton(LegitTab, "레이지봇 (사일런트 + 크로스헤어)", function(Value)
-    if __p6q7r8.__s9t0u1 then
-        __p6q7r8.__s9t0u1:SetState(Value)
+task.spawn(function()
+    local localFighter = __FighterController.LocalFighter
+    while not localFighter do
+        task.wait(0.1)
+        localFighter = __FighterController.LocalFighter
+    end
+    pcall(function()
+        localFighter:EquipItem(__getSlotNumber())
+    end)
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if not getgenv().Config.Enabled then continue end
+        local localFighter = __FighterController.LocalFighter
+        if localFighter then
+            pcall(function()
+                localFighter:EquipItem(__getSlotNumber())
+            end)
+        end
     end
 end)
 
-RunService.Heartbeat:Connect(function()
-    if not __p6q7r8.__s9t0u1 or not __p6q7r8.__s9t0u1.__active then return end
-    pcall(function()
-        local char = LocalPlayer.Character
-        if not char then return end
-        local tool = char:FindFirstChildOfClass("Tool")
-        if tool then
-            local toolName = string.lower(tool.Name)
-            if toolName:find("sword") or toolName:find("melee") or toolName:find("knife") or toolName:find("slash") or toolName:find("punch") or toolName:find("bat") or toolName:find("hammer") or toolName:find("dagger") or toolName:find("fist") then
-                local tgt = __p6q7r8.__s9t0u1.__target
-                if tgt and tgt.Character and not isImmune(tgt.Character, tgt) then
-                    if not __p6q7r8.__s9t0u1.__desync or __p6q7r8.__s9t0u1.__curr ~= tgt then
-                        __p6q7r8.__s9t0u1:__desync_start(tgt)
-                    end
-                end
+local __lastFire = 0
+local __deflecting = {}
+__plrs.PlayerRemoving:Connect(function(player)
+    __deflecting[player] = nil
+end)
+
+local function __updateDeflection()
+    if not __FighterController or not __FighterController.Objects then return end
+    for _, fighterObj in __FighterController.Objects do
+        local player = fighterObj.Player
+        if not player then continue end
+        if not fighterObj.Entity or not fighterObj.Entity:IsAlive() or fighterObj:Get("IsSpectating") then
+            __deflecting[player] = false
+            continue
+        end
+        local equipped = fighterObj.EquippedItem
+        local isKatana = equipped and equipped.ViewModel and equipped.ViewModel.Name == "Katana"
+        local isDeflecting = false
+        if isKatana then
+            isDeflecting = (equipped._attack_cooldown and equipped._attack_cooldown > tick()) or false
+        end
+        __deflecting[player] = isDeflecting
+    end
+end
+
+local function __isEnemy(player)
+    if player == __lplr then return false end
+    local duel = __SpectateController.CurrentDuelSubject
+    local localDueler = duel and duel:GetDueler(__lplr)
+    local localTeam = localDueler and localDueler:Get("TeamID") or nil
+    if localTeam and duel and duel.Duelers then
+        for _, dueler in duel.Duelers do
+            if dueler.Player == player then
+                local team = dueler:Get("TeamID")
+                return team ~= localTeam
             end
         end
-    end)
+    end
+    local pTeam = player:GetAttribute("TeamID")
+    local lTeam = __lplr:GetAttribute("TeamID")
+    if pTeam and lTeam then
+        return pTeam ~= lTeam
+    end
+    return true
+end
+
+local function __getClosestTarget()
+    local char = __lplr.Character
+    if not char then return nil, nil, nil end
+    local myRoot = char:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil, nil, nil end
+    local closestPlayer = nil
+    local closestRoot = nil
+    local closestHead = nil
+    local closestDist = 500
+    for _, player in __plrs:GetPlayers() do
+        if not __isEnemy(player) then continue end
+        local pChar = player.Character
+        if not pChar then continue end
+        local pRoot = pChar:FindFirstChild("HumanoidRootPart")
+        local pHead = pChar:FindFirstChild("Head")
+        local pHum = pChar:FindFirstChildWhichIsA("Humanoid")
+        if not (pRoot and pHead and pHum and pHum.Health > 0) then continue end
+        local dist = (myRoot.Position - pRoot.Position).Magnitude
+        if dist < closestDist then
+            closestDist = dist
+            closestPlayer = player
+            closestRoot = pRoot
+            closestHead = pHead
+        end
+    end
+    return closestPlayer, closestRoot, closestHead
+end
+
+__runS.Heartbeat:Connect(function()
+    if not getgenv().MeleeRageBotEnabled then return end
+    __updateDeflection()
+    local targetPlayer, targetRoot, targetHead = __getClosestTarget()
+    local desyncCF = nil
+    
+    if targetRoot and targetHead then
+        local t = tick() * 12
+        local offsetX = math.sin(t) * 3
+        local offsetZ = -4 + (math.cos(t) * 1)
+        local desyncPos = (targetRoot.CFrame * CFrame.new(offsetX, 0.5, offsetZ)).Position
+        desyncCF = CFrame.lookAt(desyncPos, targetHead.Position)
+    end
+
+    if desyncCF and __lplr.Character then
+        local myRoot = __lplr.Character:FindFirstChild("HumanoidRootPart")
+        if myRoot then
+            local oldCF = myRoot.CFrame
+            local oldVel = myRoot.Velocity
+            local oldRotVel = myRoot.RotVelocity
+            myRoot.CFrame = desyncCF
+            __runS:BindToRenderStep("__restore", 101, function()
+                if myRoot then
+                    myRoot.CFrame = oldCF
+                    myRoot.Velocity = oldVel
+                    myRoot.RotVelocity = oldRotVel
+                end
+                __runS:UnbindFromRenderStep("__restore")
+            end)
+        end
+    end
+
+    if not targetPlayer or not targetHead or not targetRoot then return end
+    if __deflecting[targetPlayer] then return end
+    if not __lplr.Character or not __lplr.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not __FighterController or not __FighterController.LocalFighter then return end
+    local item = __FighterController.LocalFighter.EquippedItem
+    if not item then return end
+    if tick() - __lastFire < getgenv().Config.FireRate then return end
+    __lastFire = tick()
+    local originPos = desyncCF and desyncCF.Position or targetRoot.Position
+    local targetPos = targetHead.Position
+    local aimCF = CFrame.lookAt(originPos, targetPos)
+    local targetCF = targetHead.CFrame
+    local randomOffset = Vector3.new(
+        (math.random() - 0.5) * 0.1,
+        (math.random() - 0.5) * 0.1,
+        (math.random() - 0.5) * 0.1
+    )
+    local aimedPos = targetPos + randomOffset
+    local objSpaceHeadOffset = targetHead.CFrame:ToObjectSpace(CFrame.new(aimedPos))
+    local cameradata = {}
+    cameradata[utf8.char(1)] = {
+        [utf8.char(0)] = __util:EncodeCFrame(aimCF),
+        [utf8.char(1)] = __util:EncodeCFrame(targetCF),
+        [utf8.char(2)] = targetHead,
+        [utf8.char(3)] = __util:EncodeCFrame(objSpaceHeadOffset)
+    }
+    __repS.Remotes.Replication.Fighter.UseItem:FireServer(
+        item:Get("ObjectID"),
+        __enum:ToEnum("StartShooting"),
+        cameradata,
+        nil
+    )
 end)
+
+createButton(LegitTab, "레이지봇 (일반/근접 통합)", function(Value)
+    getgenv().MeleeRageBotEnabled = Value
+    getgenv().Config.Enabled = Value
+    CrosshairContainer.Visible = Value
+end)
+
+local weaponSelectFrame = Instance.new("Frame", LegitTab)
+weaponSelectFrame.Size = UDim2.new(0.95, 0, 0, 32)
+weaponSelectFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 28)
+weaponSelectFrame.BorderSizePixel = 0
+Instance.new("UICorner", weaponSelectFrame).CornerRadius = UDim.new(0, 6)
+
+local weaponListLayout = Instance.new("UIListLayout", weaponSelectFrame)
+weaponListLayout.FillDirection = Enum.FillDirection.Horizontal
+weaponListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+weaponListLayout.Padding = UDim.new(0, 2)
+
+local function createWeaponSelectBtn(name, slotKey)
+    local btn = Instance.new("TextButton", weaponSelectFrame)
+    btn.Size = UDim2.new(0.33, -2, 1, 0)
+    btn.BackgroundColor3 = (getgenv().Config.WeaponSlot == slotKey) and Color3.fromRGB(0, 100, 220) or Color3.fromRGB(28, 28, 38)
+    btn.TextColor3 = (getgenv().Config.WeaponSlot == slotKey) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 160, 175)
+    btn.Text = name
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.BorderSizePixel = 0
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+    btn.MouseButton1Click:Connect(function()
+        getgenv().Config.WeaponSlot = slotKey
+        for _, child in ipairs(weaponSelectFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+                child.TextColor3 = Color3.fromRGB(160, 160, 175)
+            end
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(0, 100, 220)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end)
+    return btn
+end
+
+createWeaponSelectBtn("기본무기", "Primary")
+createWeaponSelectBtn("보조무기", "Secondary")
+createWeaponSelectBtn("근접무기", "Melee")
 
 RunService:BindToRenderStep("HoNyangAimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if not getgenv().AimbotEnabled then return end
@@ -944,7 +898,7 @@ RunService.RenderStepped:Connect(function()
                 healthBg.Visible = getgenv().HealthEnabled
                 healthBar.Size = UDim2.new(math.clamp(hum.Health / hum.MaxHealth, 0, 1), 0, 1, 0)
             end
-            uiContainer.Enabled = t_rue or true
+            uiContainer.Enabled = true
         else
             if uiContainer then uiContainer.Enabled = false end
         end

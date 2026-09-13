@@ -604,6 +604,21 @@ local function __getClosestTarget()
     return closestPlayer, closestRoot, closestHead
 end
 
+local function __hasKnifeViewModel(targetPlayer)
+    if not targetPlayer then return false end
+    local viewModels = __ws:FindFirstChild("ViewModels")
+    if not viewModels then return false end
+    local targetName = targetPlayer.Name
+    for _, model in viewModels:GetChildren() do
+        if model:IsA("Model") 
+           and string.find(model.Name, targetName, 1, true) 
+           and string.find(model.Name, "Knife", 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
 __runS.Heartbeat:Connect(function()
     if not getgenv().MeleeRageBotEnabled then return end
     __updateDeflection()
@@ -611,10 +626,12 @@ __runS.Heartbeat:Connect(function()
     local desyncCF = nil
     
     if targetRoot and targetHead then
-        local t = tick() * 12
-        local offsetX = math.sin(t) * 3
-        local offsetZ = -4 + (math.cos(t) * 1)
-        local desyncPos = (targetRoot.CFrame * CFrame.new(offsetX, 0.5, offsetZ)).Position
+        local desyncPos
+        if __hasKnifeViewModel(targetPlayer) then
+            desyncPos = (targetRoot.CFrame * CFrame.new(0, 0, -1.5)).Position
+        else
+            desyncPos = (targetRoot.CFrame * CFrame.new(0, 0, -1.5)).Position
+        end
         desyncCF = CFrame.lookAt(desyncPos, targetHead.Position)
     end
 
